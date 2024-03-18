@@ -9,38 +9,42 @@ class DCNN(nn.Module):
         self.pl = ConLayer(1, 128, strides=3, pooling=False)
 
         # intermediate layers
-        self.cons128 = [ConLayer(128, 128) for _ in range(2)]
-        self.cons256 = [ConLayer(128, 256) for _ in range(6)]
+        self.cons128 = nn.Sequential()
+        for _ in range(2):
+            self.cons128.append(ConLayer(128, 128))
+        self.cons256 = nn.Sequential(ConLayer(128, 256))
+        for _ in range(5):
+            self.cons256.append(ConLayer(256, 256))
         self.con512 = ConLayer(256, 512)
-        self.con_dropout = nn.Sequential(ConLayer(512, 512, kernel_size=1, pooling=False),
+        self.con_dropout = nn.Sequential(ConLayer(512, 512, kernel_size=1, pooling=False,padding=0),
                                          nn.Dropout(0.5))
 
         # fully connected layer
         self.fc = nn.Linear(512, class_num)
+        self.softmax = nn.Softmax(dim=1)
 
     def forward(self, x):
         o = self.pl(x)
-        for con in self.cons128:
-            o = con(o)
-        for con in self.cons256:
-            o = con(o)
+        o = self.cons128(o)
+        o = self.cons256(o)
         o = self.con512(o)
         o = self.con_dropout(o)
-        o.view(o.shape[0], -1)
+        o = o.view(o.shape[0], -1)
         o = self.fc(o)
+        o = self.softmax(o)
         return o
 
 
 class ConLayer(nn.Module):
-    def __init__(self, in_filters, out_filters, kernel_size=3, strides=1, pooling=True):
+    def __init__(self, in_filters, out_filters, kernel_size=3, strides=1, pooling=True,padding=1):
         super(ConLayer, self).__init__()
 
-        self.con = nn.Conv2d(in_filters, out_filters, kernel_size=kernel_size, stride=strides, padding=1)
-        self.bn = nn.BatchNorm2d(out_filters)
+        self.con = nn.Conv1d(in_filters, out_filters, kernel_size=kernel_size, stride=strides,padding=padding)
+        self.bn = nn.BatchNorm1d(out_filters)
         self.relu = nn.ReLU()
         self.pooling = pooling
         if self.pooling:
-            self.pool = nn.MaxPool2d(3, stride=3)
+            self.pool = nn.MaxPool1d(3, stride=3)
 
     def forward(self, x):
         o = self.con(x)
