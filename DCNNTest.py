@@ -1,6 +1,6 @@
 import torch
 from sklearn.model_selection import train_test_split
-from DCNN import DCNN
+from models.DCNN import DCNN
 import os
 import librosa
 import numpy as np
@@ -18,17 +18,18 @@ genres = os.listdir(root)
 x = []
 y = []
 length = []
-sr = 22050
+sr = 16*1000
 for genre in genres:
     genre_root = os.path.join(root, genre)
     audios = os.listdir(genre_root)
     for audio in audios:
         audio_path = os.path.join(genre_root, audio)
-        signal, _ = librosa.load(audio_path, sr=sr)
+        signal, sr = librosa.load(audio_path, sr=sr)
         x.append(signal)
         length.append(len(signal))
         y.append(genres.index(genre))
 min_length = min(length)
+print("finsh reading data")
 
 # segment and normalise
 for i in range(1000):
@@ -36,58 +37,101 @@ for i in range(1000):
     x[i] = librosa.util.normalize(x[i])
 x = np.asarray(x)
 y = np.asarray(y)
-print(x.shape,y.shape)
+# print(x.shape,y.shape)
 seg_length = 59049
 frame_num = int(x.shape[1]/seg_length)
 preprocessed_x = x[:, :frame_num*seg_length].reshape(frame_num*x.shape[0],1,seg_length)
 preprocessed_y = (y.reshape(y.shape[0],1)*np.ones((y.shape[0],frame_num))).reshape(y.shape[0]*frame_num)
-print(preprocessed_x.shape,preprocessed_y.shape)
+# print(preprocessed_x.shape,preprocessed_y.shape)
+print("finish segmentation and normalisation")
 
 # data split
 x_train, x_test, y_train, y_test = train_test_split(preprocessed_x, preprocessed_y, test_size=0.2,
                                                     stratify=preprocessed_y,shuffle=True)
-print(x_train.shape,y_train.shape)
-print(x_test.shape,y_test.shape)
-x_train, x_valid, y_train, y_valid = train_test_split(x_train, y_train, test_size=0.2,
-                                                    stratify=y_train,shuffle=True)
-print(x_train.shape,y_train.shape)
-print(x_valid.shape,y_valid.shape)
-batch_size = 64
-dataloader_train = create_dataloader(x_train, y_train, batch_size=batch_size)
-dataloader_valid = create_dataloader(x_valid, y_valid, batch_size=batch_size)
+# k-fold cross validation
+k = 5
+fold_size = x_train.shape[0]//k
+xs_train = []
+ys_train = []
+xs_valid = []
+ys_valid = []
+for i in range(k-1):
+    xs_valid.append(x_train[fold_size*i:fold_size*(i+1)])
+    ys_valid.append(y_train[fold_size*i:fold_size*(i+1)])
+    xs_train.append(np.concatenate([x_train[:fold_size*i],x_train[fold_size*(i+1):]],axis=0))
+    ys_train.append(np.concatenate([y_train[:fold_size * i],y_train[fold_size * (i + 1):]],axis=0))
+xs_valid.append(x_train[fold_size*(k-1):])
+ys_valid.append(y_train[fold_size*(k-1):])
+xs_train.append(x_train[:fold_size*(k-1)])
+ys_train.append(y_train[:fold_size*(k-1)])
+print("finish splitting data")
+# create dataloaders
+batch_size = 32
+dataloaders_train = []
+dataloaders_valid = []
+for i in range(k):
+    dataloaders_train.append(create_dataloader(xs_train[i], ys_train[i], batch_size=batch_size))
+    dataloaders_valid.append(create_dataloader(xs_valid[i], ys_valid[i], batch_size=batch_size))
 dataloader_test = create_dataloader(x_test, y_test, batch_size=batch_size)
-
+print("finish creating dataloaders")
 # model construction
 model = DCNN(10)
 model.cuda()
 loss_function = nn.CrossEntropyLoss()
 opt = Adam(model.parameters(), lr=0.01)
 summary(model,[(64,1,seg_length)])
+print("finish model construction")
 
 # train
 for i in range(10):
     print("-------epoch  {} -------".format(i + 1))
-    loss_train = 0
-    step_train = 0
-    for batch_idx, (data, target) in enumerate(dataloader_train):
-        model.train()
-        outputs = model(data)
-        loss = loss_function(outputs, target)
-        opt.zero_grad()
-        loss.backward()
-        opt.step()
-        loss_train += loss.item()
-        step_train += 1
-    print("Loss: {}".format(loss_train/step_train))
+    for j in range(k):
+        print(f'fold {j+1}:')
+        loss_train = 0
+        accuracy_train = 0
+        train_size = 0
+        for batch_idx, (data, target) in enumerate(dataloaders_train[j]):
+            model.train()
+            output = model(data)
+            loss = loss_function(output, target)
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
+            loss_train += loss.item()*len(data)
+            accuracy = (output.argmax(1) == target).sum()
+            accuracy_train += accuracy
+            train_size += len(data)
+        print("train set loss: {}".format(loss_train/train_size))
+        print("train set accuracy: {}".format(accuracy_train /train_size))
 
-    loss_valid = 0
-    step_valid = 0
-    for batch_idx, (data, target) in enumerate(dataloader_valid):
-        model.eval()
-        with torch.no_grad():
-            outputs = model(data)
-            loss = loss_function(outputs, target)
-            loss_valid = loss_valid + loss.item()
-            step_valid += 1
-
-    print("test set Loss: {}".format(loss_valid/step_valid))
+        loss_valid = 0
+        accuracy_valid = 0
+        valid_size = 0
+        for batch_idx, (data, target) in enumerate(dataloaders_valid[j]):
+            model.eval()
+            with torch.no_grad():
+                output = model(data)
+                loss = loss_function(output, target)
+                loss_valid += loss.item()*len(data)
+                accuracy = (output.argmax(1) == target).sum()
+                accuracy_valid += accuracy
+                valid_size += len(data)
+        print("valid set Loss: {}".format(loss_valid/valid_size))
+        print("valid set accuracy: {}".format(accuracy_valid/valid_size))
+print("finish training")
+# test
+model.eval()
+loss_test = 0
+accuracy_test = 0
+test_size = 0
+for batch_idx, (data, target) in enumerate(dataloader_test):
+    model.eval()
+    with torch.no_grad():
+        output = model(data)
+        loss = loss_function(output, target)
+        loss_test += loss.item()*len(data)
+        accuracy = (output.argmax(1) == target).sum()
+        accuracy_test += accuracy
+        test_size += len(data)
+print("test set Loss: {}".format(loss_test/test_size))
+print("test set accuracy: {}".format(accuracy_test/test_size))

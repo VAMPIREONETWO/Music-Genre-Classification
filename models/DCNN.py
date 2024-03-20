@@ -20,8 +20,9 @@ class DCNN(nn.Module):
                                          nn.Dropout(0.5))
 
         # fully connected layer
-        self.fc = nn.Linear(512, class_num)
-        self.softmax = nn.Softmax(dim=1)
+        self.fc = nn.Sequential(nn.Linear(512, class_num),
+                                nn.BatchNorm1d(class_num),
+                                nn.Softmax(dim=1))
 
     def forward(self, x):
         o = self.pl(x)
@@ -31,7 +32,6 @@ class DCNN(nn.Module):
         o = self.con_dropout(o)
         o = o.view(o.shape[0], -1)
         o = self.fc(o)
-        o = self.softmax(o)
         return o
 
 
