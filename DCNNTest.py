@@ -8,7 +8,7 @@ from torchinfo import summary
 from torch import nn
 from torch.optim import Adam
 from Utils import create_dataloader, k_fold_cross_validation
-
+from torcheval.metrics import MulticlassAUROC, MulticlassF1Score
 # limit GPU usage
 torch.cuda.set_per_process_memory_fraction(0.625)
 
@@ -104,13 +104,15 @@ for i in range(10):
                 accuracy = (output.argmax(1) == target).sum()
                 accuracy_valid += accuracy
                 valid_size += len(data)
-        print("valid set Loss: {}".format(loss_valid/valid_size))
+        print("valid set loss: {}".format(loss_valid/valid_size))
         print("valid set accuracy: {}".format(accuracy_valid/valid_size))
 print("finish training")
+
 # test
-model.eval()
 loss_test = 0
 accuracy_test = 0
+AUC_test = 0
+f1_score_test = 0
 test_size = 0
 for batch_idx, (data, target) in enumerate(dataloader_test):
     model.eval()
@@ -121,5 +123,13 @@ for batch_idx, (data, target) in enumerate(dataloader_test):
         accuracy = (output.argmax(1) == target).sum()
         accuracy_test += accuracy
         test_size += len(data)
-print("test set Loss: {}".format(loss_test/test_size))
+        auc = MulticlassAUROC(num_classes=10)
+        auc.update(output, target)
+        AUC_test += auc.compute()*len(data)
+        f1 = MulticlassF1Score(num_classes=10)
+        f1.update(output,target)
+        f1_score_test += f1.compute()*len(data)
+print("test set loss: {}".format(loss_test/test_size))
 print("test set accuracy: {}".format(accuracy_test/test_size))
+print("test set AUC: {}".format(AUC_test/test_size))
+print("test set f1-score: {}".format(f1_score_test/test_size))
