@@ -7,7 +7,7 @@ import numpy as np
 from torchinfo import summary
 from torch import nn
 from torch.optim import Adam
-from Utils import create_dataloader
+from Utils import create_dataloader, k_fold_cross_validation
 
 # limit GPU usage
 torch.cuda.set_per_process_memory_fraction(0.625)
@@ -50,20 +50,7 @@ x_train, x_test, y_train, y_test = train_test_split(preprocessed_x, preprocessed
                                                     stratify=preprocessed_y,shuffle=True)
 # k-fold cross validation
 k = 5
-fold_size = x_train.shape[0]//k
-xs_train = []
-ys_train = []
-xs_valid = []
-ys_valid = []
-for i in range(k-1):
-    xs_valid.append(x_train[fold_size*i:fold_size*(i+1)])
-    ys_valid.append(y_train[fold_size*i:fold_size*(i+1)])
-    xs_train.append(np.concatenate([x_train[:fold_size*i],x_train[fold_size*(i+1):]],axis=0))
-    ys_train.append(np.concatenate([y_train[:fold_size * i],y_train[fold_size * (i + 1):]],axis=0))
-xs_valid.append(x_train[fold_size*(k-1):])
-ys_valid.append(y_train[fold_size*(k-1):])
-xs_train.append(x_train[:fold_size*(k-1)])
-ys_train.append(y_train[:fold_size*(k-1)])
+xs_train, ys_train, xs_valid, ys_valid = k_fold_cross_validation(x_train,y_train,k)
 print("finish splitting data")
 # create dataloaders
 batch_size = 32
@@ -74,6 +61,7 @@ for i in range(k):
     dataloaders_valid.append(create_dataloader(xs_valid[i], ys_valid[i], batch_size=batch_size))
 dataloader_test = create_dataloader(x_test, y_test, batch_size=batch_size)
 print("finish creating dataloaders")
+
 # model construction
 model = DCNN(10)
 model.cuda()

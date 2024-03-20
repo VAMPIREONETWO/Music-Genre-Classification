@@ -16,13 +16,13 @@ class DCNN(nn.Module):
         for _ in range(5):
             self.cons256.append(ConLayer(256, 256))
         self.con512 = ConLayer(256, 512)
-        self.con_dropout = nn.Sequential(ConLayer(512, 512, kernel_size=1, pooling=False,padding=0),
+        self.con_dropout = nn.Sequential(ConLayer(512, 512, kernel_size=1, pooling=False, padding=0),
                                          nn.Dropout(0.5))
 
         # fully connected layer
         self.fc = nn.Sequential(nn.Linear(512, class_num),
                                 nn.BatchNorm1d(class_num),
-                                nn.Softmax(dim=1))
+                                nn.Sigmoid())
 
     def forward(self, x):
         o = self.pl(x)
