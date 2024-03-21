@@ -16,11 +16,11 @@ class ResNet18(Module):
 
         # Residual Blocks
         self.block1 = ResidualBlock(64, 64)
-        self.block2 = ResidualBlock(64, 64, dropout=True)
+        self.block2 = ResidualBlock(64, 64)
         self.block3 = ResidualBlock(64, 128, 2)
         self.block4 = ResidualBlock(128, 128, dropout=True)
         self.block5 = ResidualBlock(128, 256, 2)
-        self.block6 = ResidualBlock(256, 256, dropout=True)
+        self.block6 = ResidualBlock(256, 256)
         self.block7 = ResidualBlock(256, 512, 2)
         self.block8 = ResidualBlock(512, 512)
 
@@ -61,6 +61,7 @@ class ResidualBlock(Module):
                                        BatchNorm2d(out_filters))
         else:
             self.shortcut = lambda x: x
+        self.relu2 = ReLU()
         self.dropout = dropout
         if dropout:
             self.dp = Dropout(0.5)
@@ -72,6 +73,7 @@ class ResidualBlock(Module):
         o = self.cl2(o)
         o = self.bn2(o)
         o = o + self.shortcut(x)
+        o = self.relu2(o)
         if self.dropout:
             o = self.dp(o)
         return o
