@@ -3,6 +3,8 @@ import torch.nn as nn
 from torch.cuda.amp import autocast
 import os
 
+from torchinfo import summary
+
 # import wget
 os.environ['TORCH_HOME'] = 'pretrained_models'
 import timm
@@ -43,7 +45,7 @@ class ASTPatchEmbed(PatchEmbed):
         return x
 
 
-class ASTModel(nn.Module):
+class AST(nn.Module):
     """
     The AST model.
     :param label_dim: the label dimension, i.e., the number of total classes, it is 527 for AudioSet, 50 for ESC-50, and 35 for speechcommands v2-35
@@ -59,7 +61,7 @@ class ASTModel(nn.Module):
     def __init__(self, label_dim=527, fstride=10, tstride=10, input_fdim=128, input_tdim=1024, imagenet_pretrain=True,
                  audioset_pretrain=False, model_size='base384', verbose=True):
 
-        super(ASTModel, self).__init__()
+        super(AST, self).__init__()
         # override timm input shape restriction
         self.v = timm.create_model('deit_base_distilled_patch16_384', pretrained=imagenet_pretrain, embed_layer=ASTPatchEmbed)
         self.original_num_patches = self.v.patch_embed.num_patches
@@ -153,15 +155,16 @@ class ASTModel(nn.Module):
 
 if __name__ == '__main__':
     input_tdim = 100
-    ast_mdl = ASTModel(input_tdim=input_tdim)
+    ast_mdl = AST(input_tdim=input_tdim)
     # input a batch of 10 spectrogram, each with 100 time frames and 128 frequency bins
     test_input = torch.rand([10, input_tdim, 128])
     test_output = ast_mdl(test_input)
+    summary(ast_mdl, [test_input.shape])
     # output should be in shape [10, 527], i.e., 10 samples, each with prediction of 527 classes.
     print(test_output.shape)
 
     input_tdim = 256
-    ast_mdl = ASTModel(input_tdim=input_tdim, label_dim=50, audioset_pretrain=True)
+    ast_mdl = AST(input_tdim=input_tdim, label_dim=50, audioset_pretrain=True)
     # input a batch of 10 spectrogram, each with 512 time frames and 128 frequency bins
     test_input = torch.rand([10, input_tdim, 128])
     test_output = ast_mdl(test_input)

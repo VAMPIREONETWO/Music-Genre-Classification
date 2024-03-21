@@ -13,7 +13,7 @@ from torcheval.metrics import MulticlassAUROC, MulticlassF1Score
 torch.cuda.set_per_process_memory_fraction(0.625)
 
 # read data
-root = 'Data/genres_original'
+root = '../Data/genres_original'
 genres = os.listdir(root)
 x = []
 y = []
