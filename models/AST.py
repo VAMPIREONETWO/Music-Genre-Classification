@@ -12,14 +12,15 @@ import timm
 from timm.layers import to_2tuple, trunc_normal_, PatchEmbed
 from typing import Callable, Optional
 
+
 class ASTPatchEmbed(PatchEmbed):
     def __init__(self, img_size=224, patch_size=16, in_chans=3, embed_dim=768,
                  norm_layer: Optional[Callable] = None,
-            flatten: bool = True,
-            output_fmt: Optional[str] = None,
-            bias: bool = True,
-            strict_img_size: bool = True,
-            dynamic_img_pad: bool = False,):
+                 flatten: bool = True,
+                 output_fmt: Optional[str] = None,
+                 bias: bool = True,
+                 strict_img_size: bool = True,
+                 dynamic_img_pad: bool = False, ):
         super().__init__(
             img_size=img_size,
             patch_size=patch_size,
@@ -76,8 +77,13 @@ class AST(nn.Module):
 
         # combine block with dropout to improve ability to generalize
         self.blocks = nn.ModuleList()
+        i = 0
         for blk in self.v.blocks:
-            self.blocks.append(nn.Sequential(blk, nn.Dropout(0.3)))
+            self.blocks.append(blk)
+            i += 1
+            if i == 3:
+                self.blocks.append(nn.Dropout(0.5))
+                i = 0
 
         # automatcially get the intermediate shape
         f_dim, t_dim = self.get_shape(fstride, tstride, input_fdim, input_tdim)
@@ -96,8 +102,8 @@ class AST(nn.Module):
         # the positional embedding
         # get the positional embedding from deit model, skip the first two tokens (cls token and distillation token), reshape it to original 2D shape (24*24).
         new_pos_embed = (self.v.pos_embed[:, 2:, :].detach().reshape(1, self.original_num_patches,
-                                                                     self.original_embedding_dim).transpose(1,2).
-                         reshape( 1, self.original_embedding_dim, self.oringal_hw, self.oringal_hw))
+                                                                     self.original_embedding_dim).transpose(1, 2).
+                         reshape(1, self.original_embedding_dim, self.oringal_hw, self.oringal_hw))
         # cut (from middle) or interpolate the second dimension of the positional embedding
         if t_dim <= self.oringal_hw:
             new_pos_embed = new_pos_embed[:, :, :,
@@ -162,10 +168,3 @@ if __name__ == '__main__':
     # output should be in shape [10, 527], i.e., 10 samples, each with prediction of 527 classes.
     print(test_output.shape)
 
-    input_tdim = 256
-    ast_mdl = AST(input_tdim=input_tdim, label_dim=50, audioset_pretrain=True)
-    # input a batch of 10 spectrogram, each with 512 time frames and 128 frequency bins
-    test_input = torch.rand([10, input_tdim, 128])
-    test_output = ast_mdl(test_input)
-    # output should be in shape [10, 50], i.e., 10 samples, each with prediction of 50 classes.
-    print(test_output.shape)
