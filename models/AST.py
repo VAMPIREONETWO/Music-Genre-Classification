@@ -1,3 +1,4 @@
+# Code is refactored base on https://github.com/YuanGongND/ast.
 import torch
 import torch.nn as nn
 from torch.cuda.amp import autocast
@@ -58,66 +59,64 @@ class AST(nn.Module):
     :param model_size: the model size of AST, should be in [tiny224, small224, base224, base384], base224 and base 384 are same model, but are trained differently during ImageNet pretraining.
     """
 
-    def __init__(self, label_dim=527, fstride=10, tstride=10, input_fdim=128, input_tdim=1024, imagenet_pretrain=True,
-                 audioset_pretrain=False, model_size='base384', verbose=True):
+    def __init__(self, label_dim=527, fstride=10, tstride=10, input_fdim=128, input_tdim=1024):
 
         super(AST, self).__init__()
         # override timm input shape restriction
-        self.v = timm.create_model('deit_base_distilled_patch16_384', pretrained=imagenet_pretrain, embed_layer=ASTPatchEmbed)
+        self.v = timm.create_model('deit_base_distilled_patch16_384', pretrained=True,
+                                   embed_layer=ASTPatchEmbed)
+
         self.original_num_patches = self.v.patch_embed.num_patches
         self.oringal_hw = int(self.original_num_patches ** 0.5)
         self.original_embedding_dim = self.v.pos_embed.shape[2]
         self.mlp_head = nn.Sequential(nn.LayerNorm(self.original_embedding_dim),
-                                      nn.Linear(self.original_embedding_dim, label_dim))
+                                      nn.Linear(self.original_embedding_dim, label_dim),
+                                      nn.BatchNorm1d(label_dim),
+                                      nn.Sigmoid())
+
+        # combine block with dropout to improve ability to generalize
+        self.blocks = nn.ModuleList()
+        for blk in self.v.blocks:
+            self.blocks.append(nn.Sequential(blk, nn.Dropout(0.3)))
 
         # automatcially get the intermediate shape
         f_dim, t_dim = self.get_shape(fstride, tstride, input_fdim, input_tdim)
         num_patches = f_dim * t_dim
         self.v.patch_embed.num_patches = num_patches
-        if verbose == True:
-            print('frequncey stride={:d}, time stride={:d}'.format(fstride, tstride))
-            print('number of patches={:d}'.format(num_patches))
+        print('frequncey stride={:d}, time stride={:d}'.format(fstride, tstride))
+        print('number of patches={:d}'.format(num_patches))
 
         # the linear projection layer
         new_proj = torch.nn.Conv2d(1, self.original_embedding_dim, kernel_size=(16, 16), stride=(fstride, tstride))
-        if imagenet_pretrain == True:
-            new_proj.weight = torch.nn.Parameter(torch.sum(self.v.patch_embed.proj.weight, dim=1).unsqueeze(1))
-            new_proj.bias = self.v.patch_embed.proj.bias
+
+        new_proj.weight = torch.nn.Parameter(torch.sum(self.v.patch_embed.proj.weight, dim=1).unsqueeze(1))
+        new_proj.bias = self.v.patch_embed.proj.bias
         self.v.patch_embed.proj = new_proj
 
         # the positional embedding
-        if imagenet_pretrain == True:
-            # get the positional embedding from deit model, skip the first two tokens (cls token and distillation token), reshape it to original 2D shape (24*24).
-            new_pos_embed = self.v.pos_embed[:, 2:, :].detach().reshape(1, self.original_num_patches,
-                                                                        self.original_embedding_dim).transpose(1,
-                                                                                                               2).reshape(
-                1, self.original_embedding_dim, self.oringal_hw, self.oringal_hw)
-            # cut (from middle) or interpolate the second dimension of the positional embedding
-            if t_dim <= self.oringal_hw:
-                new_pos_embed = new_pos_embed[:, :, :,
-                                int(self.oringal_hw / 2) - int(t_dim / 2): int(self.oringal_hw / 2) - int(
-                                    t_dim / 2) + t_dim]
-            else:
-                new_pos_embed = torch.nn.functional.interpolate(new_pos_embed, size=(self.oringal_hw, t_dim),
-                                                                mode='bilinear')
-            # cut (from middle) or interpolate the first dimension of the positional embedding
-            if f_dim <= self.oringal_hw:
-                new_pos_embed = new_pos_embed[:, :,
-                                int(self.oringal_hw / 2) - int(f_dim / 2): int(self.oringal_hw / 2) - int(
-                                    f_dim / 2) + f_dim, :]
-            else:
-                new_pos_embed = torch.nn.functional.interpolate(new_pos_embed, size=(f_dim, t_dim), mode='bilinear')
-            # flatten the positional embedding
-            new_pos_embed = new_pos_embed.reshape(1, self.original_embedding_dim, num_patches).transpose(1, 2)
-            # concatenate the above positional embedding with the cls token and distillation token of the deit model.
-            self.v.pos_embed = nn.Parameter(torch.cat([self.v.pos_embed[:, :2, :].detach(), new_pos_embed], dim=1))
+        # get the positional embedding from deit model, skip the first two tokens (cls token and distillation token), reshape it to original 2D shape (24*24).
+        new_pos_embed = (self.v.pos_embed[:, 2:, :].detach().reshape(1, self.original_num_patches,
+                                                                     self.original_embedding_dim).transpose(1,2).
+                         reshape( 1, self.original_embedding_dim, self.oringal_hw, self.oringal_hw))
+        # cut (from middle) or interpolate the second dimension of the positional embedding
+        if t_dim <= self.oringal_hw:
+            new_pos_embed = new_pos_embed[:, :, :,
+                            int(self.oringal_hw / 2) - int(t_dim / 2): int(self.oringal_hw / 2) - int(
+                                t_dim / 2) + t_dim]
         else:
-            # if not use imagenet pretrained model, just randomly initialize a learnable positional embedding
-            # TODO can use sinusoidal positional embedding instead
-            new_pos_embed = nn.Parameter(
-                torch.zeros(1, self.v.patch_embed.num_patches + 2, self.original_embedding_dim))
-            self.v.pos_embed = new_pos_embed
-            trunc_normal_(self.v.pos_embed, std=.02)
+            new_pos_embed = torch.nn.functional.interpolate(new_pos_embed, size=(self.oringal_hw, t_dim),
+                                                            mode='bilinear')
+        # cut (from middle) or interpolate the first dimension of the positional embedding
+        if f_dim <= self.oringal_hw:
+            new_pos_embed = new_pos_embed[:, :,
+                            int(self.oringal_hw / 2) - int(f_dim / 2): int(self.oringal_hw / 2) - int(
+                                f_dim / 2) + f_dim, :]
+        else:
+            new_pos_embed = torch.nn.functional.interpolate(new_pos_embed, size=(f_dim, t_dim), mode='bilinear')
+        # flatten the positional embedding
+        new_pos_embed = new_pos_embed.reshape(1, self.original_embedding_dim, num_patches).transpose(1, 2)
+        # concatenate the above positional embedding with the cls token and distillation token of the deit model.
+        self.v.pos_embed = nn.Parameter(torch.cat([self.v.pos_embed[:, :2, :].detach(), new_pos_embed], dim=1))
 
     def get_shape(self, fstride, tstride, input_fdim=128, input_tdim=1024):
         test_input = torch.randn(1, 1, input_fdim, input_tdim)
@@ -144,7 +143,7 @@ class AST(nn.Module):
         x = torch.cat((cls_tokens, dist_token, x), dim=1)
         x = x + self.v.pos_embed
         x = self.v.pos_drop(x)
-        for blk in self.v.blocks:
+        for blk in self.blocks:
             x = blk(x)
         x = self.v.norm(x)
         x = (x[:, 0] + x[:, 1]) / 2
