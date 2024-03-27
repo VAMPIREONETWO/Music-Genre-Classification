@@ -1,77 +1,80 @@
-from torch.nn import Module, Sequential, Conv2d, BatchNorm2d, ReLU, ConvTranspose2d
+from torch.nn import (Module, Sequential, Conv2d, BatchNorm2d, ReLU, MaxPool2d,
+                      Linear, AdaptiveAvgPool2d, BatchNorm1d, Sigmoid, Dropout)
 
-class FCN(Module):
-    def __init__(self, in_channels, class_num):
-        super(CustomFCN, self).__init__()
 
-        self.initial = Sequential(
-            Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3),
+class ResNet18(Module):
+    def __init__(self, class_num, pre_filter_size=7, in_channels=3):
+        super(ResNet18, self).__init__()
+
+        # preprocessing layer
+        self.pl = Sequential(
+            Conv2d(in_channels, 64, kernel_size=pre_filter_size, stride=2, padding=2),
             BatchNorm2d(64),
             ReLU(),
-            MaxPool2d(kernel_size=3, stride=2, padding=1)
+            MaxPool2d(kernel_size=(3, 3), stride=2, padding=1)
         )
 
-        # Define simple residual blocks without bottleneck layers
-        self.resblock1 = self._make_layer(64, 64, 2)
-        self.resblock2 = self._make_layer(64, 128, 2)
-        self.resblock3 = self._make_layer(128, 256, 2)
-        self.resblock4 = self._make_layer(256, 512, 2)
+        # Residual Blocks
+        self.block1 = ResidualBlock(64, 64)
+        self.block2 = ResidualBlock(64, 64)
+        self.block3 = ResidualBlock(64, 128, 2)
+        self.block4 = ResidualBlock(128, 128, dropout=True)
+        self.block5 = ResidualBlock(128, 256, 2)
+        self.block6 = ResidualBlock(256, 256)
+        self.block7 = ResidualBlock(256, 512, 2)
+        self.block8 = ResidualBlock(512, 512)
 
-        # Upsampling layers
-        self.up1 = ConvTranspose2d(512, 256, kernel_size=2, stride=2)
-        self.up2 = ConvTranspose2d(256, 128, kernel_size=2, stride=2)
-        self.up3 = ConvTranspose2d(128, 64, kernel_size=2, stride=2)
-
-        # Final classifier layer
-        self.classifier = Conv2d(64, class_num, kernel_size=1)
-
-    def _make_layer(self, in_channels, out_channels, blocks):
-        layers = []
-        for _ in range(blocks):
-            layers.append(ResidualBlock(in_channels, out_channels))
-            in_channels = out_channels
-        return Sequential(*layers)
+        self.avg_pool = AdaptiveAvgPool2d((1, 1))
+        self.fc = Sequential(Linear(512, class_num),
+                             BatchNorm1d(class_num),
+                             Sigmoid())
 
     def forward(self, x):
-        x = self.initial(x)
-        x = self.resblock1(x)
-        x = self.resblock2(x)
-        x = self.resblock3(x)
-        x = self.resblock4(x)
-        x = self.up1(x)
-        x = self.up2(x)
-        x = self.up3(x)
-        x = self.classifier(x)
-        return x
+        o = self.pl(x)
+        o = self.block1(o)
+        o = self.block2(o)
+        o = self.block3(o)
+        o = self.block4(o)
+        o = self.block5(o)
+        o = self.block6(o)
+        o = self.block7(o)
+        o = self.block8(o)
+        o = self.avg_pool(o)
+        o = o.view(o.size(0), -1)
+        o = self.fc(o)
+        return o
+
 
 class ResidualBlock(Module):
-    def __init__(self, in_channels, out_channels):
-        super(ResidualBlock, self).__init__()
-        self.conv1 = Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1)
-        self.bn1 = BatchNorm2d(out_channels)
-        self.relu = ReLU()
-        self.conv2 = Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1)
-        self.bn2 = BatchNorm2d(out_channels)
+    def __init__(self, in_filters, out_filters, strides=1, dropout=False):
+        super().__init__()
 
-        if in_channels != out_channels:
-            self.downsample = Sequential(
-                Conv2d(in_channels, out_channels, kernel_size=1, stride=1),
-                BatchNorm2d(out_channels)
-            )
+        self.cl1 = Conv2d(in_filters, out_filters, kernel_size=3, stride=strides, padding=1)
+        self.bn1 = BatchNorm2d(out_filters)
+        self.relu1 = ReLU()
+
+        self.cl2 = Conv2d(out_filters, out_filters, kernel_size=3, stride=1, padding=1)
+        self.bn2 = BatchNorm2d(out_filters)
+
+        if strides != 1:
+            self.shortcut = Sequential(Conv2d(in_filters, out_filters, kernel_size=(1, 1), stride=strides),
+                                       BatchNorm2d(out_filters))
         else:
-            self.downsample = None
+            self.shortcut = lambda x: x
+        self.relu2 = ReLU()
+        self.dropout = dropout
+        if dropout:
+            self.dp = Dropout(0.5)
 
     def forward(self, x):
-        residual = x
-        out = self.conv1(x)
-        out = self.bn1(out)
-        out = self.relu(out)
-        out = self.conv2(out)
-        out = self.bn2(out)
+        o = self.cl1(x)
+        o = self.bn1(o)
+        o = self.relu1(o)
+        o = self.cl2(o)
+        o = self.bn2(o)
+        o = o + self.shortcut(x)
+        o = self.relu2(o)
+        if self.dropout:
+            o = self.dp(o)
+        return o
 
-        if self.downsample is not None:
-            residual = self.downsample(x)
-
-        out += residual
-        out = self.relu(out)
-        return out
