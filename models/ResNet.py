@@ -1,6 +1,6 @@
 from torch.nn import Module, Sequential, Conv2d, BatchNorm2d, ReLU, ConvTranspose2d
 
-class CustomFCN(Module):
+class FCN(Module):
     def __init__(self, in_channels, class_num):
         super(CustomFCN, self).__init__()
 
