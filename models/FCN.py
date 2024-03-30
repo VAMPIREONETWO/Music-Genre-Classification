@@ -62,5 +62,5 @@ class FCN7(nn.Module):
 #fcn7 = FCN7(class_num=class_num)
 
 # Example input tensor
-inputs = torch.randn(1, 1, 96, 1366)  # Batch size of 1
-output = fcn7(inputs)
+# inputs = torch.randn(1, 1, 96, 1366)  # Batch size of 1
+# output = fcn7(inputs)
