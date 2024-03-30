@@ -35,8 +35,12 @@ class FCN7(nn.Module):
         self.conv6 = nn.Conv2d(2048, 1024, kernel_size=1) # 1x1 convolutions
         self.conv7 = nn.Conv2d(1024, 1024, kernel_size=1) # additional 1x1 convolution as per FCN-7
         
-        self.final_conv = nn.Conv2d(1024, 50, kernel_size=1)
-        self.sigmoid = nn.Sigmoid()
+        # Fully connected layer with batch normalization and sigmoid activation
+        self.fc = nn.Sequential(
+            nn.Linear(512, class_num),
+            nn.BatchNorm1d(class_num),
+            nn.Sigmoid()
+        )
 
     def forward(self, x):
         x = self.mp1(self.conv1(x))
@@ -48,10 +52,15 @@ class FCN7(nn.Module):
         x = self.conv6(x)
         x = self.conv7(x)
         
-        x = self.final_conv(x)
         x = x.view(x.size(0), -1)  # Flatten the output
-        x = self.sigmoid(x)
+
+        # Apply the fully connected layer
+        x = self.fc(x)
         return x
 
-# fcn7 = FCN7()
-# output = fcn7(inputs)
+#class_num = xxx  # Change this to your number of classes
+#fcn7 = FCN7(class_num=class_num)
+
+# Example input tensor
+inputs = torch.randn(1, 1, 96, 1366)  # Batch size of 1
+output = fcn7(inputs)
