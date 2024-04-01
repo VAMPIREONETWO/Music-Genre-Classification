@@ -16,5 +16,5 @@ models directory contains all models.\
 Utils.py contains methods used in test.
 
 # Test
-Upload data directory to Google Drive
-When test files require zip file, using supports.zip
+Upload data directory to Google Drive.\
+When test files require zip file, using supports.zip.
