@@ -24,9 +24,13 @@ def read_data(root='Data/genres_original', sr=16 * 1000):
     return x, y, min_length
 
 
-def create_dataloader(x, y, batch_size=64):
-    x = torch.tensor(x, dtype=torch.float)
-    y = torch.tensor(y, dtype=torch.long)
+def create_dataloader(x, y, batch_size=64, cuda=False):
+    if cuda:
+        x = torch.tensor(x, dtype=torch.float).cuda()
+        y = torch.tensor(y, dtype=torch.long).cuda()
+    else:
+        x = torch.tensor(x, dtype=torch.float)
+        y = torch.tensor(y, dtype=torch.long)
     data = TensorDataset(x, y)
     dataloader = DataLoader(data, batch_size=batch_size, shuffle=True)
     return dataloader
