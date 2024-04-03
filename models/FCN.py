@@ -17,14 +17,6 @@ class ConvBlock(nn.Module):
 class FCN7(nn.Module):
     def __init__(self, class_num, pre_filter_size=7, in_channels=3):
         super(FCN7, self).__init__()
-
-        # preprocessing layer
-        self.pl = Sequential(
-            Conv2d(in_channels, 64, kernel_size=pre_filter_size, stride=2, padding=2),
-            BatchNorm2d(64),
-            ReLU(),
-            MaxPool2d(kernel_size=(3, 3), stride=2, padding=1)
-        )
         
         self.conv1 = ConvBlock(1, 128)
         self.mp1 = nn.MaxPool2d((2, 4))
@@ -46,7 +38,7 @@ class FCN7(nn.Module):
         
         # Fully connected layer with batch normalization and sigmoid activation
         self.fc = nn.Sequential(
-            nn.Linear(512, class_num),
+            nn.Linear(1024, class_num),
             nn.BatchNorm1d(class_num),
             nn.Sigmoid()
         )
