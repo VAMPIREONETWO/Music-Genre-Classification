@@ -17,7 +17,7 @@ def read_data(root='Data/genres_original', sr=16 * 1000):
         for audio in audios:
             audio_path = os.path.join(genre_root, audio)
             signal, sr = librosa.load(audio_path, sr=sr)
-            x.append(signal)
+            x.append(signal[:sr*30])
             length.append(len(signal))
             y.append(genres.index(genre))
     min_length = min(length)
