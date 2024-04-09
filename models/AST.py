@@ -60,7 +60,7 @@ class AST(nn.Module):
     :param model_size: the model size of AST, should be in [tiny224, small224, base224, base384], base224 and base 384 are same model, but are trained differently during ImageNet pretraining.
     """
 
-    def __init__(self, label_dim=527, fstride=10, tstride=10, input_fdim=128, input_tdim=1024):
+    def __init__(self, label_dim=10, fstride=10, tstride=10, input_fdim=128, input_tdim=1024):
 
         super(AST, self).__init__()
         # override timm input shape restriction
