@@ -5,11 +5,6 @@ Python Version:3.10\
 Environment: `pip install -r 'requirements.txt'`\
 Colab Version: RAM>=12.0GB, GPU Memory>=15.0GB\
 Local Version: RAM>=32.0GB, GPU Memory>=12.0GB
-# Models
-FCN\
-ResNet\
-AST\
-DCNN
 
 # Files
 ColabTests directory contains tests that can run in Google Colab.\

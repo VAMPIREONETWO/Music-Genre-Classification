@@ -2,13 +2,13 @@ from torch.nn import (Module, Sequential, Conv2d, BatchNorm2d, ReLU, MaxPool2d,
                       Linear, AdaptiveAvgPool2d, BatchNorm1d, Sigmoid, Dropout)
 
 
-class ResNet18(Module):
-    def __init__(self, class_num, pre_filter_size=7, in_channels=3):
-        super(ResNet18, self).__init__()
+class ResNet(Module):
+    def __init__(self, class_num, pre_filter_size=3, in_channels=1):
+        super(ResNet, self).__init__()
 
         # preprocessing layer
         self.pl = Sequential(
-            Conv2d(in_channels, 64, kernel_size=pre_filter_size, stride=2, padding=2),
+            Conv2d(in_channels, 64, kernel_size=pre_filter_size, stride=2, padding=1),
             BatchNorm2d(64),
             ReLU(),
             MaxPool2d(kernel_size=(3, 3), stride=2, padding=1)
@@ -18,7 +18,7 @@ class ResNet18(Module):
         self.block1 = ResidualBlock(64, 64)
         self.block2 = ResidualBlock(64, 64)
         self.block3 = ResidualBlock(64, 128, 2)
-        self.block4 = ResidualBlock(128, 128, dropout=True)
+        self.block4 = ResidualBlock(128, 128)
         self.block5 = ResidualBlock(128, 256, 2)
         self.block6 = ResidualBlock(256, 256)
         self.block7 = ResidualBlock(256, 512, 2)
