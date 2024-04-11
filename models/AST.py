@@ -75,13 +75,13 @@ class AST(nn.Module):
                                       nn.BatchNorm1d(label_dim),
                                       nn.Sigmoid())
 
-        # combine block with dropout to improve ability to generalize
+        # add dropout layers to improve ability to generalize
         self.blocks = nn.ModuleList()
         i = 0
         for blk in self.v.blocks:
             self.blocks.append(blk)
             i += 1
-            if i == 3:
+            if i == 6:
                 self.blocks.append(nn.Dropout(0.5))
                 i = 0
 

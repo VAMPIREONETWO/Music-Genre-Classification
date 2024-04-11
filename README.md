@@ -2,7 +2,11 @@
 
 # Environment
 Python Version:3.10\
-Environment: `pip install -r 'requirements.txt'`\
+Environment:\
+`pip install -r 'requirements.txt'`\
+`!pip install torchinfo`\
+`!pip install torcheval`\
+`!pip install timm`\
 Colab Version: RAM>=12.0GB, GPU Memory>=15.0GB\
 Local Version: RAM>=32.0GB, GPU Memory>=12.0GB
 
