@@ -1,4 +1,4 @@
-# Code is refactored base on https://github.com/YuanGongND/ast.
+# Code is refactored from https://github.com/YuanGongND/ast.
 import torch
 import torch.nn as nn
 from torch.cuda.amp import autocast
@@ -156,15 +156,4 @@ class AST(nn.Module):
 
         x = self.mlp_head(x)
         return x
-
-
-if __name__ == '__main__':
-    input_tdim = 100
-    ast_mdl = AST(input_tdim=input_tdim)
-    # input a batch of 10 spectrogram, each with 100 time frames and 128 frequency bins
-    test_input = torch.rand([10, input_tdim, 128])
-    test_output = ast_mdl(test_input)
-    summary(ast_mdl, [test_input.shape])
-    # output should be in shape [10, 527], i.e., 10 samples, each with prediction of 527 classes.
-    print(test_output.shape)
 
