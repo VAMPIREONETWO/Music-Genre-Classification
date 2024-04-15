@@ -11,14 +11,14 @@ Colab Version: RAM>=12.0GB, GPU Memory>=15.0GB\
 Local Version: RAM>=32.0GB, GPU Memory>=12.0GB
 
 # Files
-ColabTests directory contains tests that can run in Google Colab.\
-LocalTests directory contains tests that can run in Google Colab.\
+ColabTests directory contains tests that can run in Google Colab.
+LocalTests directory contains tests that can run in Google Colab.
 
 U can use ColabTest that can run in Google Colab.
-models directory contains all models.\
+models directory contains all models.
 # Test
-Upload data directory to Google Drive before testing.\
+Upload data directory to Google Drive before testing.
 
 # How to use
-1. Upload **Data** directory to Google Drive before testing.\
-2. Run Or Check **ColabTests** files that can run in Google Colab.\
+1. Upload **Data** directory to Google Drive before testing.
+2. Run Or Check **ColabTests** files that can run in Google Colab.
