@@ -15,9 +15,11 @@ Original jazz.00054.wav is decayed, so a substitution is used.
 # Files
 ColabTests directory contains tests that can run in Google Colab.\
 LocalTests directory contains tests that can run in Google Colab.\
-models directory contains all models.\
-Utils.py contains methods used in test.\
-supports.zip contains models, Utils.py and requirements.txt and is used in test.
+U can use ColabTest that can run in Google Colab.\
+models directory contains all models.
 # Test
-Upload data directory to Google Drive before testing.\
-When test files require zip file, using supports.zip.
+Upload data directory to Google Drive before testing.
+
+# How to use
+1. Upload **Data** directory to Google Drive before testing.
+2. Run Or Check **ColabTests** files that can run in Google Colab.
