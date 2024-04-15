@@ -9,7 +9,9 @@ Environment:\
 `!pip install timm`\
 Colab Version: RAM>=12.0GB, GPU Memory>=15.0GB\
 Local Version: RAM>=32.0GB, GPU Memory>=12.0GB
-
+# Dataset
+https://www.kaggle.com/datasets/andradaolteanu/gtzan-dataset-music-genre-classification \
+Original jazz.00054.wav is decayed, so a substitution is used. 
 # Files
 ColabTests directory contains tests that can run in Google Colab.\
 LocalTests directory contains tests that can run in Google Colab.\
