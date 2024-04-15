@@ -13,9 +13,8 @@ Local Version: RAM>=32.0GB, GPU Memory>=12.0GB
 # Files
 ColabTests directory contains tests that can run in Google Colab.\
 LocalTests directory contains tests that can run in Google Colab.\
+FCNTests directory contains tests that can run in Google Colab.\
+ResNetTests directory contains tests that can run in Google Colab.\
 models directory contains all models.\
-Utils.py contains methods used in test.\
-supports.zip contains models, Utils.py and requirements.txt and is used in test.
 # Test
 Upload data directory to Google Drive before testing.\
-When test files require zip file, using supports.zip.
